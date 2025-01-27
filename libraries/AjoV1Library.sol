@@ -20,7 +20,7 @@ library AjoV1Library {
             emit FeePaid(feeTo, feeAmount);
         }
         return feeAmount;
-    }
+    } 
 
     function removeAllOccurrences(address _address, address[] storage _list) internal {
         uint256 count = 0;
