@@ -44,3 +44,8 @@ The Savings Pool tries to emulate the traditional ajo but allowing the community
 
 
 
+| Chain| Contract | Deploy Address |
+|----------|----------|----------|
+| Ethereum  | AjoV1Factory  | 0xF4f6Fd1b5F64e668a953E548EE15F2c79c8C6CAA  |
+| Ethereum Classic  | AjoV1Factory   | 0xB5bD1AaB1AaBD2749257131716EdE5616cE11896 |
+
