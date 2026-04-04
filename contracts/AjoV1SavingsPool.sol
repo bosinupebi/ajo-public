@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: NONE
-pragma solidity ^ 0.8.19;
+pragma solidity ^0.8.19;
 
 import {IERC20} from "./IERC20.sol";
 import {ReentrancyGuard} from "./ReentrancyGuard.sol";
@@ -64,31 +64,36 @@ contract AjoV1SavingsPool is ReentrancyGuard {
     function payout(uint256 timestamp, address recipient) external nonReentrant onlyAdministrator {
         require(timestamp >= intervals[0].endTimestamp, "AjoV1SavingsPool: No full interval has passed");
         require(timestamp <= block.timestamp, "AjoV1SavingsPool: Timestamp cannot be in the future");
-        uint256 targetIntervalIndex;
-        // Find the target interval for the given timestamp
+
+        // Find the last interval whose end is at or before the given timestamp.
+        // Intervals are stored in chronological order so we break as soon as we
+        // reach one that has not yet ended — no sentinel interval required.
+        uint256 targetIntervalIndex = 0;
         for (uint256 i = 0; i < intervals.length; i++) {
-            if (timestamp <= intervals[i].endTimestamp) {
-                targetIntervalIndex = i > 0 ? i - 1 : 0;
+            if (intervals[i].endTimestamp <= timestamp) {
+                targetIntervalIndex = i;
+            } else {
                 break;
             }
         }
+
         uint256 intervalsToProcess;
-        // Calculate how many intervals to process
         if (lastProcessedInterval == 0 && lastPayoutTimestamp == 0) {
             intervalsToProcess = targetIntervalIndex + 1;
         } else {
             intervalsToProcess = targetIntervalIndex - lastProcessedInterval;
         }
         require(intervalsToProcess == 1, "AjoV1SavingsPool: Please only process one interval at a time");
-        // Update state variables
-        lastPayoutTimestamp = block.timestamp;
+
+        // Store the interval's own end timestamp rather than block.timestamp so
+        // off-chain tracking of "when did interval N end" remains accurate.
+        lastPayoutTimestamp = intervals[targetIntervalIndex].endTimestamp;
         lastProcessedInterval = targetIntervalIndex;
-        //transfer fee
+
         uint256 feeAmount =
             AjoV1Library.transferFee(intervals[targetIntervalIndex].totalDeposits, contributionToken, factory);
         uint256 withdrawalAmount = intervals[targetIntervalIndex].totalDeposits - feeAmount;
-        //transfer amount
-        assert(IERC20(contributionToken).transfer(recipient, withdrawalAmount));
+        AjoV1Library.safeTransfer(contributionToken, recipient, withdrawalAmount);
         emit Payout(recipient, withdrawalAmount);
         _update();
     }
@@ -103,7 +108,7 @@ contract AjoV1SavingsPool is ReentrancyGuard {
 
         //transfer out the contract balance to the administrator
         //no fee for rage quitting
-        assert(IERC20(contributionToken).transfer(administrator, IERC20(contributionToken).balanceOf(address(this))));
+        AjoV1Library.safeTransfer(contributionToken, administrator, IERC20(contributionToken).balanceOf(address(this)));
         //update contract balance
         _update();
     }
@@ -112,7 +117,7 @@ contract AjoV1SavingsPool is ReentrancyGuard {
         require(amount == contribution, "AjoV1SavingsPool: Incorrect contribution amount");
         require(IERC20(contributionToken).balanceOf(msg.sender) >= amount, "AjoV1SavingsPool: Insufficient Funds");
         // Transfer tokens from the caller to ourselves.
-        assert(IERC20(contributionToken).transferFrom(msg.sender, address(this), amount));
+        AjoV1Library.safeTransferFrom(contributionToken, msg.sender, address(this), amount);
         uint256 currentIntervalIndex = intervals.length - 1;
         //create a new interval if required
         if (block.timestamp >= intervals[currentIntervalIndex].endTimestamp) {
@@ -123,9 +128,9 @@ contract AjoV1SavingsPool is ReentrancyGuard {
         //update deposits for the current interval
         intervals[currentIntervalIndex].totalDeposits += amount;
         //credit the caller and save their deposit amount with the block time stamp
-        tokenDepositsByUser[msg.sender][IERC20(contributionToken)].push(
-            Deposit({amount: amount, timestamp: block.timestamp, intervalIndex: currentIntervalIndex})
-        );
+        tokenDepositsByUser[msg.sender][IERC20(
+                contributionToken
+            )].push(Deposit({amount: amount, timestamp: block.timestamp, intervalIndex: currentIntervalIndex}));
         //update token balance, currently tracking separately from the deposits
         //need to think about this
         tokenBalancesByUser[msg.sender][IERC20(contributionToken)] += amount;

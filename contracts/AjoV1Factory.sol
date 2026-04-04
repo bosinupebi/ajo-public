@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: NONE
-pragma solidity ^ 0.8.19;
+pragma solidity ^0.8.19;
 
 import {AjoV1LotteryPool} from "./AjoV1LotteryPool.sol";
 import {AjoV1SavingsPool} from "./AjoV1SavingsPool.sol";
