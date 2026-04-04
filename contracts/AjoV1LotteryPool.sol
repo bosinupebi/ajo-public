@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: NONE
-pragma solidity ^ 0.8.19;
+pragma solidity ^0.8.19;
 
 import {IERC20} from "./IERC20.sol";
 import {ReentrancyGuard} from "./ReentrancyGuard.sol";
@@ -38,7 +38,7 @@ contract AjoV1LotteryPool is ReentrancyGuard {
         delete luckyPhrase;
         uint256 feeAmount = AjoV1Library.transferFee(contractBalance, contributionToken, factory);
         uint256 winnerAmount = contractBalance - feeAmount;
-        assert(IERC20(contributionToken).transfer(winner, winnerAmount));
+        AjoV1Library.safeTransfer(contributionToken, winner, winnerAmount);
         emit Payout(winner, winnerAmount);
         _update();
     }
@@ -48,7 +48,7 @@ contract AjoV1LotteryPool is ReentrancyGuard {
         require(amount >= contribution, "AjoV1LotteryPool: Incorrect contribution amount");
         require(IERC20(contributionToken).balanceOf(msg.sender) >= amount, "AjoV1LotteryPool: Insufficient Funds");
         // Transfer tokens from the caller to ourselves.
-        assert(IERC20(contributionToken).transferFrom(msg.sender, address(this), amount));
+        AjoV1Library.safeTransferFrom(contributionToken, msg.sender, address(this), amount);
         tokenBalancesByUser[msg.sender][IERC20(contributionToken)] += amount;
         addUniqueAddress(msg.sender);
         _update();
@@ -65,7 +65,7 @@ contract AjoV1LotteryPool is ReentrancyGuard {
         tokenBalancesByUser[msg.sender][IERC20(contributionToken)] -= availableBalance;
         AjoV1Library.removeAllOccurrences(msg.sender, uniqueAddresses);
         isUniqueAddress[msg.sender] = false;
-        assert(IERC20(contributionToken).transfer(msg.sender, availableBalance));
+        AjoV1Library.safeTransfer(contributionToken, msg.sender, availableBalance);
         _update();
     }
 
